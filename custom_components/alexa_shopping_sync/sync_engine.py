@@ -764,6 +764,12 @@ class SyncEngine:
                         mapped_ha_ids.add(ha_match.item_id)
                 continue
 
+            # Our HA->Alexa write may first appear after the pending op
+            # expires. Its persisted ID mapping still identifies the echo.
+            if self._find_mapping_by_alexa_id(item.item_id):
+                result.skipped_echo += 1
+                continue
+
             if not self._mirror_completed and item.complete:
                 continue
 
@@ -952,6 +958,12 @@ class SyncEngine:
         mapped_alexa_ids = {m.alexa_id for m in self._state.mappings}
         for item in diff.added:
             if self._is_echo(PendingOpType.ADD, item.name, item.item_id):
+                result.skipped_echo += 1
+                continue
+
+            # Alexa->HA writes can also be observed after the grace window,
+            # especially when a cloud-backed todo list updates slowly.
+            if self._find_mapping_by_ha_id(item.item_id):
                 result.skipped_echo += 1
                 continue
 
